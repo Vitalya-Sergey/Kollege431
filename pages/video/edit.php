@@ -31,7 +31,7 @@ $success = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $video_url = trim($_POST['video_url'] ?? '');
+    $file_path = trim($_POST['file_path'] ?? '');
     $tags = isset($_POST['tags']) ? array_map('trim', explode(',', $_POST['tags'])) : [];
     $status = $_POST['status'] ?? $video['status'];
 
@@ -43,10 +43,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db->beginTransaction();
 
             // Обновляем основную информацию о видео
-            if (!empty($video_url) && $video_url !== $video['file_path']) {
+            if (!empty($file_path) && $file_path !== $video['file_path']) {
                 // Если изменился URL видео
                 $stmt = $db->prepare("UPDATE videos SET title = ?, description = ?, file_path = ?, status = ? WHERE id = ?");
-                $stmt->execute([$title, $description, $video_url, $status, $video_id]);
+                $stmt->execute([$title, $description, $file_path, $status, $video_id]);
             } else {
                 // Если URL не менялся
                 $stmt = $db->prepare("UPDATE videos SET title = ?, description = ?, status = ? WHERE id = ?");
@@ -133,8 +133,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
 
                         <div class="mb-3">
-                            <label for="video_url" class="form-label">URL видео</label>
-                            <input type="url" class="form-control" id="video_url" name="video_url"
+                            <label for="file_path" class="form-label">URL видео</label>
+                            <input type="url" class="form-control" id="file_path" name="file_path"
                                    value="<?php echo htmlspecialchars($video['file_path']); ?>"
                                    placeholder="Оставьте пустым, если не хотите менять">
                             <small class="text-muted">Введите новый URL только если хотите изменить источник видео</small>

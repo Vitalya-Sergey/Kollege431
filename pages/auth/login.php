@@ -69,8 +69,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Войти</button>
-                        <a href="index.php?page=register" class="btn btn-secondary">Регистрация</a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-sign-in-alt me-2"></i>Войти
+                        </button>
+                        <a href="index.php?page=reset_password" class="btn btn-link">
+                            Забыли пароль?
+                        </a>
                     </div>
                 </form>
             </div>

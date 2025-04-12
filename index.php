@@ -39,8 +39,14 @@ switch($page) {
     case 'college':
         include 'pages/college/view.php';
         break;
+    case 'colleges':
+        include 'pages/colleges/list.php';
+        break;
     case 'video':
         include 'pages/video/view.php';
+        break;
+    case 'videos':
+        include 'pages/videos/list.php';
         break;
     default:
         include 'pages/404.php';

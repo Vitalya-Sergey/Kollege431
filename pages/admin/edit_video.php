@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
     $college_id = (int)($_POST['college_id'] ?? 0);
-    $video_url = trim($_POST['video_url'] ?? '');
+    $file_path = trim($_POST['file_path'] ?? '');
     $tags = isset($_POST['tags']) ? array_map('trim', explode(',', $_POST['tags'])) : [];
 
     if (empty($title) || empty($college_id)) {
@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // Update video
             $stmt = $db->prepare("UPDATE videos SET title = ?, description = ?, college_id = ?, file_path = ? WHERE id = ?");
-            $stmt->execute([$title, $description, $college_id, $video_url, $video_id]);
+            $stmt->execute([$title, $description, $college_id, $file_path, $video_id]);
 
             // Delete old tags
             $stmt = $db->prepare("DELETE FROM video_tags WHERE video_id = ?");
@@ -138,8 +138,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="mb-3">
-                        <label for="video_url" class="form-label">URL видео</label>
-                        <input type="url" class="form-control" id="video_url" name="video_url" required
+                        <label for="file_path" class="form-label">URL видео</label>
+                        <input type="url" class="form-control" id="file_path" name="file_path" required
                                value="<?php echo htmlspecialchars($video['file_path']); ?>">
                         <small class="text-muted">Поддерживаются ссылки с rutube, dzen, VK и других видеохостингов</small>
                     </div>

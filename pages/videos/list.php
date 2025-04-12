@@ -1,73 +1,28 @@
 <?php
-// Start the session if not already started
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-// Проверяем наличие ID колледжа и делаем все редиректы до вывода HTML
-if (!isset($_GET['id'])) {
-    $_SESSION['message'] = 'ID колледжа не указан';
-    $_SESSION['message_type'] = 'danger';
-    header("Location: index.php?page=colleges");
-    exit();
-}
-
-$college_id = (int)$_GET['id'];
-
-// Получаем информацию о колледже до любого вывода
-$stmt = $db->prepare("
-    SELECT u.*, 
-           COUNT(DISTINCT v.id) as videos_count,
-           COUNT(DISTINCT vl.id) as total_likes,
-           COUNT(DISTINCT vc.id) as total_comments
-    FROM users u
-    LEFT JOIN videos v ON u.id = v.college_id
-    LEFT JOIN video_likes vl ON v.id = vl.video_id
-    LEFT JOIN video_comments vc ON v.id = vc.video_id
-    WHERE u.id = ? AND u.role = 'college'
-    GROUP BY u.id
-");
-
-try {
-    $stmt->execute([$college_id]);
-    $college = $stmt->fetch();
-
-    if (!$college) {
-        $_SESSION['message'] = 'Колледж не найден';
-        $_SESSION['message_type'] = 'danger';
-        header("Location: index.php?page=colleges");
-        exit();
-    }
-} catch (PDOException $e) {
-    $_SESSION['message'] = 'Ошибка при получении данных колледжа';
-    $_SESSION['message_type'] = 'danger';
-    header("Location: index.php?page=colleges");
-    exit();
-}
-
-// Получаем видео колледжа
-$stmt = $db->prepare("
+// Получаем все видео с информацией о колледже, лайках и комментариях
+$query = "
     SELECT v.*, 
+           u.college_name,
            COUNT(DISTINCT l.id) as likes_count,
            COUNT(DISTINCT c.id) as comments_count,
            EXISTS(SELECT 1 FROM video_likes WHERE video_id = v.id AND user_id = ?) as user_liked
     FROM videos v
+    LEFT JOIN users u ON v.college_id = u.id
     LEFT JOIN video_likes l ON v.id = l.video_id
     LEFT JOIN video_comments c ON v.id = c.video_id
-    WHERE v.college_id = ?
+    " . (isset($_GET['college_id']) ? "WHERE v.college_id = ?" : "") . "
     GROUP BY v.id
     ORDER BY v.created_at DESC
-");
+";
 
-try {
-    $stmt->execute([isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 0, $college_id]);
-    $videos = $stmt->fetchAll();
-} catch (PDOException $e) {
-    $_SESSION['message'] = 'Ошибка при получении видео';
-    $_SESSION['message_type'] = 'danger';
-    header("Location: index.php?page=colleges");
-    exit();
+$params = [isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 0];
+if (isset($_GET['college_id'])) {
+    $params[] = (int)$_GET['college_id'];
 }
+
+$stmt = $db->prepare($query);
+$stmt->execute($params);
+$videos = $stmt->fetchAll();
 
 // Функция для получения информации о видео
 function getVideoInfo($url) {
@@ -99,92 +54,10 @@ function getVideoInfo($url) {
 ?>
 
 <div class="container mt-4">
-    <!-- Профиль колледжа -->
-    <div class="row mb-5">
-        <div class="col-md-4">
-            <?php if ($college['profile_image']): ?>
-                <img src="<?php echo htmlspecialchars($college['profile_image']); ?>" 
-                     class="img-fluid rounded-3 mb-3" 
-                     alt="<?php echo htmlspecialchars($college['college_name']); ?>">
-            <?php else: ?>
-                <div class="bg-light rounded-3 p-4 text-center mb-3">
-                    <i class="fas fa-university fa-4x text-muted"></i>
-                </div>
-            <?php endif; ?>
-        </div>
-        <div class="col-md-8">
-            <h1 class="mb-3"><?php echo htmlspecialchars($college['college_name']); ?></h1>
-            
-            <?php if ($college['description']): ?>
-                <p class="lead mb-4"><?php echo nl2br(htmlspecialchars($college['description'])); ?></p>
-            <?php endif; ?>
-            
-            <div class="row g-3 mb-4">
-                <div class="col-auto">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body text-center">
-                            <h3 class="mb-0"><?php echo $college['videos_count']; ?></h3>
-                            <small class="text-muted">видео</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-auto">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body text-center">
-                            <h3 class="mb-0"><?php echo $college['total_likes']; ?></h3>
-                            <small class="text-muted">лайков</small>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-auto">
-                    <div class="card border-0 bg-light">
-                        <div class="card-body text-center">
-                            <h3 class="mb-0"><?php echo $college['total_comments']; ?></h3>
-                            <small class="text-muted">комментариев</small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="social-links">
-                <?php if ($college['website']): ?>
-                    <a href="<?php echo htmlspecialchars($college['website']); ?>" 
-                       class="btn btn-outline-primary me-2" 
-                       target="_blank">
-                        <i class="fas fa-globe me-1"></i>
-                        Сайт
-                    </a>
-                <?php endif; ?>
-                
-                <?php if ($college['social_vk']): ?>
-                    <a href="<?php echo htmlspecialchars($college['social_vk']); ?>" 
-                       class="btn btn-outline-primary me-2" 
-                       target="_blank">
-                        <i class="fab fa-vk me-1"></i>
-                        ВКонтакте
-                    </a>
-                <?php endif; ?>
-                
-                <?php if ($college['social_rutube']): ?>
-                    <a href="<?php echo htmlspecialchars($college['social_rutube']); ?>" 
-                       class="btn btn-outline-primary me-2" 
-                       target="_blank">
-                        <i class="fas fa-play-circle me-1"></i>
-                        RuTube
-                    </a>
-                <?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <!-- Видео колледжа -->
     <div class="row">
         <div class="col-12">
             <h2 class="mb-4">
-                Видео
-                <?php if ($college['videos_count'] > 0): ?>
-                    <small class="text-muted">(<?php echo $college['videos_count']; ?>)</small>
-                <?php endif; ?>
+                <?php echo isset($_GET['college_id']) ? 'Видео колледжа' : 'Все видео'; ?>
             </h2>
         </div>
     </div>
@@ -192,7 +65,7 @@ function getVideoInfo($url) {
     <?php if (empty($videos)): ?>
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
-            У этого колледжа пока нет видео.
+            <?php echo isset($_GET['college_id']) ? 'У этого колледжа пока нет видео.' : 'Пока нет загруженных видео.'; ?>
         </div>
     <?php else: ?>
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
@@ -256,11 +129,9 @@ function getVideoInfo($url) {
                                     <?php echo htmlspecialchars($video['title']); ?>
                                 </a>
                             </h5>
-                            <?php if ($video['description']): ?>
-                                <p class="card-text small text-muted mb-2">
-                                    <?php echo htmlspecialchars(substr($video['description'], 0, 100)) . '...'; ?>
-                                </p>
-                            <?php endif; ?>
+                            <p class="card-text small text-muted mb-2">
+                                <?php echo htmlspecialchars($video['college_name']); ?>
+                            </p>
                             <div class="d-flex justify-content-between align-items-center">
                                 <div class="btn-group">
                                     <button type="button" 
@@ -327,14 +198,6 @@ function getVideoInfo($url) {
     color: #dc3545;
     border-color: #dc3545;
     background-color: rgba(220, 53, 69, 0.1);
-}
-
-.social-links .btn {
-    transition: all 0.2s;
-}
-
-.social-links .btn:hover {
-    transform: translateY(-2px);
 }
 </style>
 
