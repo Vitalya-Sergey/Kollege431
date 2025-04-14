@@ -1,4 +1,14 @@
 <?php
+// Получаем список колледжей для фильтра
+$stmt = $db->prepare("SELECT id, college_name FROM users WHERE role = 'college' ORDER BY college_name");
+$stmt->execute();
+$colleges = $stmt->fetchAll();
+
+// Параметры поиска и сортировки
+$search = isset($_GET['search']) ? trim($_GET['search']) : '';
+$college_filter = isset($_GET['college_filter']) ? (int)$_GET['college_filter'] : 0;
+$sort = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
+
 // Получаем все видео с информацией о колледже, лайках и комментариях
 $query = "
     SELECT v.*, 
@@ -10,14 +20,38 @@ $query = "
     LEFT JOIN users u ON v.college_id = u.id
     LEFT JOIN video_likes l ON v.id = l.video_id
     LEFT JOIN video_comments c ON v.id = c.video_id
-    " . (isset($_GET['college_id']) ? "WHERE v.college_id = ?" : "") . "
-    GROUP BY v.id
-    ORDER BY v.created_at DESC
+    WHERE 1=1
 ";
 
 $params = [isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 0];
-if (isset($_GET['college_id'])) {
-    $params[] = (int)$_GET['college_id'];
+
+// Добавляем условия поиска
+if (!empty($search)) {
+    $query .= " AND v.title LIKE ?";
+    $params[] = "%{$search}%";
+}
+
+// Фильтр по колледжу
+if ($college_filter > 0) {
+    $query .= " AND v.college_id = ?";
+    $params[] = $college_filter;
+}
+
+$query .= " GROUP BY v.id";
+
+// Сортировка
+switch ($sort) {
+    case 'oldest':
+        $query .= " ORDER BY v.created_at ASC";
+        break;
+    case 'most_liked':
+        $query .= " ORDER BY likes_count DESC";
+        break;
+    case 'most_commented':
+        $query .= " ORDER BY comments_count DESC";
+        break;
+    default: // newest
+        $query .= " ORDER BY v.created_at DESC";
 }
 
 $stmt = $db->prepare($query);
@@ -54,10 +88,76 @@ function getVideoInfo($url) {
 ?>
 
 <div class="container mt-4">
+    <!-- Форма поиска и фильтрации -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" action="index.php" class="row g-3">
+                        <input type="hidden" name="page" value="videos">
+                        
+                        <div class="col-12 col-md-4">
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" 
+                                       class="form-control" 
+                                       name="search" 
+                                       value="<?php echo htmlspecialchars($search); ?>" 
+                                       placeholder="Поиск по названию">
+                            </div>
+                        </div>
+                        
+                        <div class="col-12 col-md-3">
+                            <select class="form-select" name="college_filter">
+                                <option value="0">Все колледжи</option>
+                                <?php foreach ($colleges as $college): ?>
+                                    <option value="<?php echo $college['id']; ?>" 
+                                            <?php echo $college_filter == $college['id'] ? 'selected' : ''; ?>>
+                                        <?php echo htmlspecialchars($college['college_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12 col-md-3">
+                            <select class="form-select" name="sort">
+                                <option value="newest" <?php echo $sort === 'newest' ? 'selected' : ''; ?>>Сначала новые</option>
+                                <option value="oldest" <?php echo $sort === 'oldest' ? 'selected' : ''; ?>>Сначала старые</option>
+                                <option value="most_liked" <?php echo $sort === 'most_liked' ? 'selected' : ''; ?>>По количеству лайков</option>
+                                <option value="most_commented" <?php echo $sort === 'most_commented' ? 'selected' : ''; ?>>По количеству комментариев</option>
+                            </select>
+                        </div>
+                        
+                        <div class="col-12 col-md-2">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-filter me-2"></i>Применить
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="row">
         <div class="col-12">
             <h2 class="mb-4">
-                <?php echo isset($_GET['college_id']) ? 'Видео колледжа' : 'Все видео'; ?>
+                <?php 
+                if (!empty($search)) {
+                    echo 'Результаты поиска: ' . htmlspecialchars($search);
+                } elseif ($college_filter > 0) {
+                    foreach ($colleges as $college) {
+                        if ($college['id'] == $college_filter) {
+                            echo 'Видео колледжа: ' . htmlspecialchars($college['college_name']);
+                            break;
+                        }
+                    }
+                } else {
+                    echo 'Все видео';
+                }
+                ?>
             </h2>
         </div>
     </div>
@@ -65,7 +165,15 @@ function getVideoInfo($url) {
     <?php if (empty($videos)): ?>
         <div class="alert alert-info">
             <i class="fas fa-info-circle me-2"></i>
-            <?php echo isset($_GET['college_id']) ? 'У этого колледжа пока нет видео.' : 'Пока нет загруженных видео.'; ?>
+            <?php 
+            if (!empty($search)) {
+                echo 'По вашему запросу ничего не найдено.';
+            } elseif ($college_filter > 0) {
+                echo 'У этого колледжа пока нет видео.';
+            } else {
+                echo 'Пока нет загруженных видео.';
+            }
+            ?>
         </div>
     <?php else: ?>
         <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
