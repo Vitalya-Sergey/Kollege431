@@ -70,6 +70,10 @@ $videos = $stmt->fetchAll();
                                                class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i>
                                             </a>
+                                            <a href="index.php?page=admin&action=edit_college&id=<?php echo $college['id']; ?>" 
+                                               class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
                                             <a href="index.php?page=admin&action=delete_college&id=<?php echo $college['id']; ?>" 
                                                class="btn btn-sm btn-outline-danger"
                                                onclick="return confirm('Вы уверены, что хотите удалить этот колледж?')">
